@@ -73,7 +73,6 @@ describe('context', function() {
   it('uses providers value when provider is found', async () => {
     withProviderUpdate('spooky');
     await cycle();
-    await cycle();
     assert.equal(getResults('with-provider')[0], 'spooky');
   });
 

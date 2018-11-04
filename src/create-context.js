@@ -1,43 +1,56 @@
 import { contextEvent } from './symbols.js';
-import { useState } from './use-state.js';
-import { useEffect } from './use-effect.js';
-import { useMemo } from './use-memo.js';
+import { useContext, useMemo } from './use-context.js';
 import { html, component } from './core.js';
 
 export const createContext = (defaultValue) => {
   const Context = {};
-
-  Context.Provider = component(function (element) {
-    const { value } = element;
-    const [listeners, setListeners] = useState([]);
-
-    useMemo(() => { // has to trigger updates as soon as possible without extra cycle on provider itself
-      listeners.forEach(listener => listener(value));
-    }, [value]);
-
-    const unsubscribe = useMemo(() => { // has to add listener as soon as possible
-      const eventHandler = (event) => {
+  
+  Context.Provider = class extends HTMLElement {
+    constructor() {
+      super();
+      this.listeners = [];
+  
+      this.eventHandler = (event) => {
         const { detail } = event;
       
         if (detail.Context === Context) {
-          detail.value = element.value;
+          detail.value = this.value;
       
-          detail.unsubscribe = () => setListeners(listeners.filter(l => l !== detail.callback));
+          detail.unsubscribe = () => {
+            const index = this.listeners.indexOf(detail.callback)
 
-          setListeners([...listeners, detail.callback]);
+            if (index > -1) {
+              this.listeners.splice(index, 1);
+            }
+          }
 
+          this.listeners.push(detail.callback);
+  
           event.stopPropagation();
         }
       }
+  
+      this.addEventListener(contextEvent, this.eventHandler);
+    }
+  
+    disconnectedCallback() {
+      this.removeEventListener(contextEvent, this.eventHandler);
+    }
 
-      element.addEventListener(contextEvent, eventHandler);
+    set value(value) {
+      this._value = value;
+      this.listeners.forEach(callback => callback(value));
+    }
 
-      return element.removeEventListener.bind(element, contextEvent, eventHandler);
-    }, [contextEvent]);
+    get value() {
+      return this._value;
+    }
+  };
 
-    useEffect(() => unsubscribe, [contextEvent]); // to remove the listener
+  Context.Consumer = component(function ({ render }) {
+    const context = useContext(Context);
 
-    return html`<slot></slot>`; // to allow children since shadow is attached
+    return html`<slot>${render(context)}</slot>`;
   });
 
   Context.defaultValue = defaultValue;

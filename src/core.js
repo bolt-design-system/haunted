@@ -46,6 +46,13 @@ function component(renderer, BaseElement = HTMLElement) {
     }
 
     disconnectedCallback() {
+      let contexts = this[contextSymbol];
+      if(contexts) {
+        for(let context of contexts) {
+          context.unsubscribe();
+        }
+      }
+
       let effects = this[effectsSymbol];
       if(effects) {
         for(let effect of effects) {

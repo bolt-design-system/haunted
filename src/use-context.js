@@ -1,17 +1,38 @@
-import { useEffect } from './use-effect.js';
-import { useState } from './use-state.js';
-import { useMemo } from './use-memo.js';
-import { current } from './interface.js';
-import { contextEvent } from './symbols.js';
+import { contextSymbol, contextEvent } from './symbols.js';
+import { hook, Hook } from './hook.js';
 
-export const useContext = (Context) => {
-  const [context, setContext] = useState();
-  let contextValue = context;
+function setContexts(el, consumer) {
+  if(!(contextSymbol in el)) {
+    el[contextSymbol] = [];
+  }
+  el[contextSymbol].push(consumer);
+}
 
-  const unsubscribe = useMemo(() => { // has to synchronous
-    const detail = { Context, callback: setContext }; // setContext sucks because causes extra cycle
+const useContext = hook(class extends Hook {
+  constructor(id, el, Context) {
+    super(id, el);
+    setContexts(el, this);
+    this._updater = this._updater.bind(this);
+  }
 
-    current.dispatchEvent(new CustomEvent(contextEvent, {
+  update(Context) {
+    if (this.Context !== Context) {
+      this._subscribe(Context);
+      this.Context = Context;
+    }
+
+    return this.value;
+  }
+
+  _updater(value) {
+    this.value = value;
+    this.el._update();
+  }
+
+  _subscribe(Context) {
+    const detail = { Context, callback: this._updater };
+
+    this.el.dispatchEvent(new CustomEvent(contextEvent, {
       detail, // carrier
       bubbles: true, // to bubble up in tree
       cancelable: true, // to be able to cancel
@@ -20,12 +41,16 @@ export const useContext = (Context) => {
 
     const { unsubscribe, value } = detail;
 
-    contextValue = unsubscribe ? value : Context.defaultValue; // ugly
+    this.value = unsubscribe ? value : Context.defaultValue;
 
-    return unsubscribe;
-  }, [contextEvent]);
+    this._unsubscribe = unsubscribe;
+  }
 
-  useEffect(() => unsubscribe, [contextEvent]); // to unsubscribe
+  unsubscribe() {
+    if (this._unsubscribe) {
+      this._unsubscribe();
+    }
+  }
+});
 
-  return contextValue;
-}
+export { useContext };
