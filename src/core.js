@@ -1,4 +1,4 @@
-import { commitSymbol, phaseSymbol, updateSymbol, hookSymbol, effectsSymbol } from './symbols.js';
+import { commitSymbol, phaseSymbol, updateSymbol, hookSymbol, effectsSymbol, contextSymbol } from './symbols.js';
 import { setCurrent, clear } from './interface.js';
 import { render, html } from 'https://unpkg.com/lit-html@^0.12.0/lit-html.js';
 
